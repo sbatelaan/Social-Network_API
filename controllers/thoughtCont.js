@@ -2,21 +2,28 @@ const { Thought, User } = require('../models');
 
 module.exports  = {
     getAllThoughts(req, res) {
-        Thought.find()
-        .then((thoughts) => res.json(thoughts))
-        .catch((err) => res.status(500).json(err));
+        Thought.find({})
+            // .populate('reactionId')
+            .then(dbThoughtData => res.json(dbThoughtData))
+            .catch(err => {
+                console.log(err);
+                res.status(400).json(err);
+            });
     },
        
     getSingleThought(req, res) {
+        console.log('thoughtId:', req.params.thoughtId)
         Thought.findOne({ _id: req.params.thoughtId })
-        .select('__v')
         .populate('reactions')
         .then((thought) => 
         !thought
         ? res.status(404).json({ message: 'No thought with that ID' })
         : res.json(thought)
         )
-        .catch((err) => res.status(500).json(err));
+        .catch((err) => {
+            console.log(err); // log the error to the console
+            return res.status(500).json(err);
+          });
     },
 
     createThought(req, res) {
@@ -39,26 +46,48 @@ module.exports  = {
             res.status(500).json(err);
         })
     },
+
     updateThought(req, res) {
         Thought.findOneAndUpdate(
-            { _id: req.params.thoughtId },
-            {
-                thoughtText: req.body.thoughtText,
-                username: req.body.username
-            },
-            { new: true },
-            (err, result) => {
-                if (result) {
-                    res.status(200).json(result);
-                    console.log(`Updated ${result}`)
-                } else {
-                    console.log(err);
-                    res.status(500).json({ message: 'update thought error', err});
-
-                }
-            }
+          { _id: req.params.thoughtId },
+          {
+            thoughtText: req.body.thoughtText,
+            username: req.body.username,
+          },
+          { new: true }
         )
-    },
+          .then((thought) => {
+            if (!thought) {
+              return res.status(404).json({ message: 'No thought with that ID' });
+            }
+            res.status(200).json(thought);
+            console.log(`Updated ${thought}`);
+          })
+          .catch((err) => {
+            console.log(err);
+            res.status(500).json({ message: 'update thought error', err });
+          });
+      },
+    // updateThought(req, res) {
+    //     Thought.findOneAndUpdate(
+    //         { _id: req.params.thoughtId },
+    //         {
+    //             thoughtText: req.body.thoughtText,
+    //             username: req.body.username
+    //         },
+    //         { new: true },
+    //         (err, result) => {
+    //             if (result) {
+    //                 res.status(200).json(result);
+    //                 console.log(`Updated ${result}`)
+    //             } else {
+    //                 console.log(err);
+    //                 res.status(500).json({ message: 'update thought error', err});
+
+    //             }
+    //         }
+    //     )
+    // },
     deleteThought(req, res) {
         Thought.findOneAndRemove({ _id: req.params.thoughtId })
         .then((thought) =>

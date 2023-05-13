@@ -4,6 +4,7 @@ const { User, Thought } = require('../models');
 module.exports = {
     getUsers(req,res) {
         User.find()
+        .populate('thoughts')
         .then((users) => res.json(users))
         .catch((err) => res.status(500).json(err));
     },
@@ -49,6 +50,7 @@ module.exports = {
                 res.status(500).json({ message: 'update user error', err });
             });
     },
+    //fondOneAndUpdate no longer accepts callback functions as the last argument
 
     // updateUser(req, res) {
     //     User.findOneAndUpdate(
