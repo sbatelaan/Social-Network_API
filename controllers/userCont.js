@@ -2,11 +2,14 @@ const { ObjectId } = require('mongoose').Types;
 const { User, Thought } = require('../models');
 
 module.exports = {
-    getUsers(req,res) {
+    getUsers(req, res) {
         User.find()
         .populate('thoughts')
         .then((users) => res.json(users))
-        .catch((err) => res.status(500).json(err));
+        .catch(err => {
+            console.log(err);
+            res.status(500).json({ message: 'all user error', err });
+        });
     },
 
     getSingleUser(req, res) {
@@ -40,7 +43,6 @@ module.exports = {
             .then(result => {
                 if (result) {
                     res.status(200).json(result);
-                    console.log(`Updated: ${result}`)
                 } else {
                     res.status(500).json({ message: 'update user error' });
                 }
@@ -51,28 +53,6 @@ module.exports = {
             });
     },
     //fondOneAndUpdate no longer accepts callback functions as the last argument
-
-    // updateUser(req, res) {
-    //     User.findOneAndUpdate(
-    //         { _id: req.params.userId },
-    //         {
-    //             username: req.body.username,
-    //             email: req.body.email
-    //         },
-    //         { new: true },
-    //         (err, result) => {
-    //             if (result) {
-    //                 res.status(200).json(result);
-    //                 console.log(`Updated: ${result}`)
-    //             } else {
-    //                 console.log(err);
-    //                 res.status(500).json({ message: 'update user error', err});
-
-    //             }
-    //         }
-            
-    //     )
-    // },
 
     deleteUser(req, res) {
         User.findOneAndRemove({ _id: req.params.userId })
@@ -89,41 +69,44 @@ module.exports = {
         .catch((err) => res.status(500).json(err))
     },
 
-    addFriend(req, res) {
-        User.findOne({ _id: req.params.friendId })
-        .select('__v')
-        .then((user) => {
+    addFriend({ params }, res) {
+        User.findOne({ _id: params.friendId })
+          .select('username')
+          .then(({ username }) => {
             return User.findOneAndUpdate(
-                { _id: req.params.userId },
-                {$addToSet: {
-                    friends: user._id
-                }},
-                { new: true }
-            );
-        }).then((user) => 
-        !user
-        ? res.status(404).json({ message: 'No user with id' })
-        : res.json(user)
-        )
-        .catch((err) => res.status(500).json(err))
-    },
+              { _id: params.userId },
+              { $addToSet: { friends: { friendId: params.friendId, username } } },
+              { new: true, runValidators: true }
+            ).populate('friends');
+          })
+          .then((dbUserData) => {
+            if (!dbUserData) {
+              res.status(404).json({ message: "No user with this id" });
+              return;
+            }
+            res.json(dbUserData);
+          })
+          .catch((err) => res.json(err));
+      },
 
-    removeFriend(req, res) {
+      removeFriend(req, res) {
         User.findOne({ _id: req.params.friendId })
-        .select('__v')
-        .then((user) => {
-            return User.findByIdAndUpdate (
-                { _id: req.params.userId},
-                {$pull: {
-                    friends: user._id
-                }},
-                { new: true }
+          .select('-__v')
+          .then((user) => {
+            return User.findOneAndUpdate (
+              { _id: req.params.userId }, 
+              { $pull: { 
+                  friends: { friendId: user._id }
+                }
+              },
+              { new: true } 
             );
-        }).then((user) => 
-        !user
-        ? res.status(404).json({ message: 'No user with that id' })
-        : res.json(user)
-        )
-        .catch((err) => res.status(500).json(err));
-    }
-};
+          })
+          .then((user) => {
+            if (!user) {
+              return res.status(404).json({ message: 'No user with that ID' });
+            }
+            res.json(user);
+          })
+          .catch((err) => res.status(500).json(err));
+      }};
